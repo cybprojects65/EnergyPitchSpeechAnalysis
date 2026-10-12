@@ -6,45 +6,60 @@ import java.io.FileWriter;
 
 import it.cnr.speech.segmentation.Energy;
 import it.cnr.speech.segmentation.Pitch;
+import it.cnr.speech.utils.Utils;
 
 public class EnergyPitchExtractor {
 
 	
-	public void extractEnergyPitch(File waveFile, File outputFile, double windowLength, double windowHop, double minPitchFreq, double maxPitchFreq, boolean normalizeEnergy) throws Exception{
-		
-		
-		Energy nrg = new Energy();
-		Pitch pitch = new Pitch();
-        
-		System.out.println("Extracting energy on "+windowLength+"s windows and "+windowHop+" window shift (hop) - normalised: "+normalizeEnergy);
-        double energyContour [] = nrg.energyCurve(waveFile.getAbsolutePath(), windowLength, windowHop, normalizeEnergy);
-        System.out.println("Extracting pitch on "+windowLength+"s windows and "+windowHop+" window shift (hop) with ["+minPitchFreq+";"+maxPitchFreq+"] Hz frequency range");
-        double pitchContour [] = pitch.calculatePitch(waveFile.getAbsolutePath(), windowLength, windowHop, minPitchFreq, maxPitchFreq);		
-		
-        BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile));
-        String header = "Time_start_s,Time_end_s,energy,pitch";
-        bw.write(header+"\n");
-        
-        for (int i=0;i<energyContour.length;i++) {
-        	
-        	double t0 = i*windowHop;
-        	double t1 = t0+windowLength;
-        	double e = energyContour[i];
-        	double p = pitchContour[i];
-        	
-        	String entry = t0+","+t1+","+e+","+p;
-        	bw.write(entry);
-        	if (i<(energyContour.length-1))
-        		bw.write("\n");
+    public void extractEnergyPitch(File waveFile, File outputFile,
+            double windowLength, double windowHop, double minPitchFreq,
+            double maxPitchFreq, boolean normalizeEnergy) throws Exception {
+        extractEnergyPitch(waveFile, outputFile, windowLength, windowHop,
+                minPitchFreq, maxPitchFreq, normalizeEnergy, false, false);
+    }
+
+    public void extractEnergyPitch(File waveFile, File outputFile,
+            double windowLength, double windowHop, double minPitchFreq,
+            double maxPitchFreq, boolean normalizeEnergy,
+            boolean useDelta, boolean useDoubleDelta) throws Exception {
+        double[] energy = new Energy().energyCurve(waveFile.getAbsolutePath(),
+                windowLength, windowHop, normalizeEnergy);
+        double[] pitch = new Pitch().calculatePitch(waveFile.getAbsolutePath(),
+                windowLength, windowHop, minPitchFreq, maxPitchFreq);
+        if (energy.length != pitch.length) {
+            throw new IllegalStateException("Energy and pitch contours have different lengths");
         }
-        
-        
-        bw.close();
-        System.out.println("Energy-pitch report saved to "+outputFile.getAbsolutePath());
-		
-	}
-	
-	
+
+        double[] energyDelta = null;
+        double[] pitchDelta = null;
+        double[] energyDoubleDelta = null;
+        double[] pitchDoubleDelta = null;
+        if (useDelta || useDoubleDelta) {
+            energyDelta = Utils.calculateDelta(energy);
+            pitchDelta = Utils.calculateDelta(pitch);
+        }
+        if (useDoubleDelta) {
+            energyDoubleDelta = Utils.calculateDelta(energyDelta);
+            pitchDoubleDelta = Utils.calculateDelta(pitchDelta);
+        }
+
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile))) {
+            bw.write("Time_start_s,Time_end_s,energy,pitch");
+            if (useDelta) bw.write(",energy_delta,pitch_delta");
+            if (useDoubleDelta) bw.write(",energy_double_delta,pitch_double_delta");
+            bw.newLine();
+            for (int i = 0; i < energy.length; i++) {
+                double t0 = i * windowHop;
+                bw.write(t0 + "," + (t0 + windowLength) + "," + energy[i] + "," + pitch[i]);
+                if (useDelta) bw.write("," + energyDelta[i] + "," + pitchDelta[i]);
+                if (useDoubleDelta) bw.write("," + energyDoubleDelta[i] + "," + pitchDoubleDelta[i]);
+                bw.newLine();
+            }
+        }
+    }
+
+    
+
 	public static void main(String[] args) {
 
 	    String usage = """
@@ -57,6 +72,8 @@ public class EnergyPitchExtractor {
 	                [-min_pitch_freq 60] \\
 	                [-max_pitch_freq 250] \\
 	                [-normalize_energy false]
+	                [-use_delta false]
+	                [-use_double_delta false]
 
 	            Preferred input: 16 kHz, signed 16-bit, little-endian, mono PCM WAV.
 	            Window length and hop are in seconds.
@@ -77,6 +94,8 @@ public class EnergyPitchExtractor {
 	    double minPitchFreq = 60.0;
 	    double maxPitchFreq = 250.0;
 	    boolean normalizeEnergy = false;
+        boolean useDelta = false;
+        boolean useDoubleDelta = false;
 
 	    try {
 	        java.util.Set<String> seen = new java.util.HashSet<>();
@@ -97,6 +116,8 @@ public class EnergyPitchExtractor {
 	                case "-min_pitch_freq":
 	                case "-max_pitch_freq":
 	                case "-normalize_energy":
+                case "-use_delta":
+                case "-use_double_delta":
 	                    break;
 	                default:
 	                    throw new IllegalArgumentException(
@@ -141,12 +162,18 @@ public class EnergyPitchExtractor {
 	                    break;
 
 	                case "-normalize_energy":
+                case "-use_delta":
+                case "-use_double_delta":
 	                    if (!"true".equalsIgnoreCase(value)
 	                            && !"false".equalsIgnoreCase(value)) {
 	                        throw new IllegalArgumentException(
-	                                "-normalize_energy must be true or false.");
+	                                option + " must be true or false.");
 	                    }
-	                    normalizeEnergy = Boolean.parseBoolean(value);
+	                    switch (option) {
+                        case "-normalize_energy": normalizeEnergy = Boolean.parseBoolean(value); break;
+                        case "-use_delta": useDelta = Boolean.parseBoolean(value); break;
+                        case "-use_double_delta": useDoubleDelta = Boolean.parseBoolean(value); break;
+                    }
 	                    break;
 	            }
 	        }
@@ -201,7 +228,7 @@ public class EnergyPitchExtractor {
 	                windowHop,
 	                minPitchFreq,
 	                maxPitchFreq,
-	                normalizeEnergy);
+	                normalizeEnergy, useDelta, useDoubleDelta);
 
 	        System.out.println(
 	                "Energy and pitch saved to: " + outputFile.getAbsolutePath());

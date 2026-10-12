@@ -182,4 +182,25 @@ public class Utils {
 		
 	}
 	
+	
+	/**
+     * Five-frame regression delta: sum(n * (x[t+n] - x[t-n]), n=1..2) / 10.
+     * Out-of-range indices repeat the nearest endpoint. Empty contours remain
+     * empty; a single frame has zero delta. Values are per frame, not per second.
+     * Pitch zeros are retained, including changes at voiced/unvoiced boundaries.
+     */
+    public static double[] calculateDelta(double[] values) {
+        double[] delta = new double[values.length];
+        for (int t = 0; t < values.length; t++) {
+            double sum = 0;
+            for (int n = 1; n <= 2; n++) {
+                int left = Math.max(0, t - n);
+                int right = (int) Math.min(values.length - 1L, (long) t + n);
+                sum += n * (values[right] - values[left]);
+            }
+            delta[t] = sum / 10.0;
+        }
+        return delta;
+    }
+	
 }
