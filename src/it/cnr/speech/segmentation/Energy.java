@@ -1,8 +1,6 @@
 package it.cnr.speech.segmentation;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 
 import it.cnr.speech.audiofeatures.AudioBits;
 import it.cnr.speech.audiofeatures.AudioWaveGenerator;
@@ -113,22 +111,40 @@ public class Energy {
 		bits = new AudioBits(audioFile);
 		signal = bits.getShortVectorAudio();
 		float sfrequency = bits.getAudioFormat().getSampleRate();
-		double[] nrg = energyCurve(windowInMs, signal, sfrequency, normalize);
+		double[] nrg = energyCurve(windowInMs, windowInMs, signal, sfrequency, normalize);
 		// bits.deallocateAudio();
 		return nrg;
 	}
 
-	public double[] energyCurve(float windowIns, short[] signal, float sfrequency, boolean normalize) {
+	/**
+	 * Computes mean-square energy in complete windows. Durations are in seconds.
+	 * Window i starts at i * round(windowHop * sfrequency) samples.
+	 * Incomplete trailing windows are discarded; a signal shorter than one
+	 * window returns an empty array. Normalized silence remains zero.
+	 */
+	public double[] energyCurve(double windowLength, double windowHop, short[] signal, float sfrequency, boolean normalize) {
 
-		// initial energy
-		int windowSamples = Math.round(windowIns * sfrequency);
-		int steps = signal.length / windowSamples;
+		if (!Double.isFinite(windowLength) || windowLength <= 0
+				|| !Double.isFinite(windowHop) || windowHop <= 0
+				|| !Float.isFinite(sfrequency) || sfrequency <= 0) {
+			throw new IllegalArgumentException("Window length, hop and sample rate must be finite and positive");
+		}
+		long roundedWindow = Math.round(windowLength * sfrequency);
+		long roundedHop = Math.round(windowHop * sfrequency);
+		if (roundedWindow < 1 || roundedWindow > Integer.MAX_VALUE
+				|| roundedHop < 1 || roundedHop > Integer.MAX_VALUE) {
+			throw new IllegalArgumentException("Window length and hop must round to 1..Integer.MAX_VALUE samples");
+		}
+		int windowSamples = (int) roundedWindow;
+		int hopSamples = (int) roundedHop;
+		int steps = signal.length < windowSamples ? 0
+				: 1 + (signal.length - windowSamples) / hopSamples;
 
 		// trace energy curve
 		double[] energySignal = new double[steps];
-		double maxEnergy = -Double.MAX_VALUE;
+		double maxEnergy = 0;
 		for (int i = 0; i < steps; i++) {
-			int currentIdx = i * windowSamples;
+			int currentIdx = i * hopSamples;
 			short[] signalSlice = new short[windowSamples];
 			for (int j = 0; j < windowSamples; j++) {
 				signalSlice[j] = signal[currentIdx + j];
@@ -140,12 +156,31 @@ public class Energy {
 				maxEnergy = energySignal[i];
 		}
 
-		if (normalize) {
+		if (normalize && maxEnergy > 0) {
 			for (int i = 0; i < steps; i++) {
 				energySignal[i] = energySignal[i] / maxEnergy;
 			}
 		}
 		return energySignal;
+	}
+	
+	public double[] energyCurve(String wavefile, double windowLength, double windowHop, boolean normalize) {
+	
+		// Use the same audio sample count as the existing energy extraction.
+        AudioBits audio = new AudioBits(new File(wavefile));
+        short[] signal;
+        float sampleRate;
+
+        try {
+            sampleRate = audio.getAudioFormat().getSampleRate();
+            signal = audio.getShortVectorAudio();
+        } finally {
+            audio.deallocateAudio();
+        }
+        
+        return energyCurve(windowLength, windowHop, signal, sampleRate, normalize);
+        
+        
 	}
 	
 	public static double energy(short[] signal) {

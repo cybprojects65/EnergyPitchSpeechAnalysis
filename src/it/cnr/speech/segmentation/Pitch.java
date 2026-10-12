@@ -2,18 +2,13 @@ package it.cnr.speech.segmentation;
 
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
 import edu.cuny.qc.speech.AuToBI.core.Contour;
-import edu.cuny.qc.speech.AuToBI.core.ContourIterator;
-import edu.cuny.qc.speech.AuToBI.core.Pair;
 import edu.cuny.qc.speech.AuToBI.core.WavData;
 import edu.cuny.qc.speech.AuToBI.io.WavReader;
 import it.cnr.speech.audiofeatures.AudioBits;
 
-public class PitchExtractor {
+public class Pitch {
 
 	public double windowlength;
 	public double windowshift;
@@ -25,7 +20,7 @@ public class PitchExtractor {
 	public int spansamples;
 	public double samples[];
 	public Double pitchCurve[];
-	
+
 	public int samplerate;
 	public String filepath;
 	public boolean normalized;
@@ -35,13 +30,13 @@ public class PitchExtractor {
 	public boolean paintlines;
 	public int waveheight;
 	public double pitchWindowSec = 0.01d;
-		
+
 	public void setPitchWindowSec(double pitchWindowSec) {
-		this.pitchWindowSec=pitchWindowSec; 
+		this.pitchWindowSec=pitchWindowSec;
 	}
-	
+
 	public static void main(String[] args) throws Exception{
-		PitchExtractor extractor = new PitchExtractor();
+		Pitch extractor = new Pitch();
 		extractor.setPitchWindowSec(0.2);
 		//System.out.println("is a question:"+extractor.isQuestionRough("./segments_v2\\cluster0\\audio_segment_37_word5.wav"));
 		System.out.println("is a question:"+extractor.isQuestionRough("./segments_v2\\cluster0\\audio_segment_0_word0.wav"));
@@ -49,7 +44,7 @@ public class PitchExtractor {
 
 	public boolean isQuestion(String wavefile) {
 		calculatePitch(wavefile);
-		
+
 		if ((pitchCurve != null) && (pitchCurve.length > 0)) {
 			// go backward until you find a non zero and non INF pitch p1
 			int nonzeroidx = -1;
@@ -59,7 +54,7 @@ public class PitchExtractor {
 					break;
 				}
 			}
-			
+
 			if (nonzeroidx == -1)
 				return false;
 			double pitchatidx=pitchCurve[nonzeroidx];
@@ -68,12 +63,12 @@ public class PitchExtractor {
 			int comparisonidx = -1;
 			int tolerance = 5;
 			for (int i = nonzeroidx-1; i >= 0; i--) {
-				if ((pitchCurve[i]!=null && (pitchCurve[i] < pitchatidx-tolerance) || (pitchCurve[i] > pitchatidx+tolerance)) && 
+				if ((pitchCurve[i]!=null && (pitchCurve[i] < pitchatidx-tolerance) || (pitchCurve[i] > pitchatidx+tolerance)) &&
 						(pitchCurve[i]<1200) && !Double.isInfinite(pitchCurve[i]) && !Double.isNaN(pitchCurve[i])) {
 					comparisonidx = i;
 					break;
 				}
-			}	
+			}
 
 			if (comparisonidx==-1)
 				return false;
@@ -88,7 +83,7 @@ public class PitchExtractor {
 //			if (pitchatidx-comparisonpitch>0.7*pitchatidx)
 //			if (comparisonpitch-pitchatidx>0.2*comparisonpitch)
 //			if (comparisonpitch<pitchatidx){
-			
+
 			if ((comparisonpitch<k*pitchatidx)&&(comparisonpitch/pitchatidx<2)){
 //				System.out.println("true");
 				return true;
@@ -99,14 +94,14 @@ public class PitchExtractor {
 			}
 		}
 		else return false;
-		
+
 	}
 
 	public boolean isQuestionRough(String wavefile) {
 		calculatePitch(wavefile);
-		
+
 		if ((pitchCurve != null) && (pitchCurve.length > 0)) {
-			
+
 			// go backward until you find a non zero and non INF pitch p1
 						int nonzeroidx = -1;
 						for (int i = (pitchCurve.length - 1); i >= 0; i--) {
@@ -115,14 +110,14 @@ public class PitchExtractor {
 								break;
 							}
 						}
-						
+
 						if (nonzeroidx < 1)
 							return false;
-						
+
 			Double pitchatidx=pitchCurve[nonzeroidx];
 			Double comparisonpitch=pitchCurve[nonzeroidx-1];
 			if (pitchatidx ==null || comparisonpitch == null) {
-				if (pitchatidx!=null) 
+				if (pitchatidx!=null)
 					return true;
 				else
 					return false;
@@ -138,9 +133,9 @@ public class PitchExtractor {
 			}
 		}
 		else return false;
-		
+
 	}
-	
+
 	public void getSamples(String filepath) {
 		AudioBits audiosamplesreader = new AudioBits(new File(filepath));
 		samples = audiosamplesreader.getDoubleVectorAudio();
@@ -151,7 +146,9 @@ public class PitchExtractor {
 		windowshift = 100;
 	}
 
-	
+
+ 
+
     public void calculatePitch(String wavefile) {
     	try{
     	WavReader reader = new WavReader();
@@ -165,14 +162,14 @@ public class PitchExtractor {
     		if (pitchCurve[i] == null || Double.isNaN(pitchCurve[i]) || Double.isInfinite(pitchCurve[i]))
     			pitchCurve[i] = 0d;
     	}
-    	
-    	
+
+
     	/*
     	ContourIterator iterator = contour.iterator();
     	int i = 0;
     	while (iterator.hasNext()){
     		Pair<Double,Double> pair = iterator.next();
-    		
+
     		if (pair.second == null){
     			System.out.println(pair.second);
     			pair.second=Double.NaN;
@@ -182,39 +179,39 @@ public class PitchExtractor {
     	}
     	System.out.println("I:"+i);
     	*/
-    	
+
     	}catch(Exception e ){}
     }
-    
+
 
     public void calculatePitch(String wavefile, double minPitch, double maxPitch) {
     	try{
     	WavReader reader = new WavReader();
     	WavData wave = reader.read(wavefile);
     	double duration = wave.getDuration();
-    	
+
     	edu.cuny.qc.speech.AuToBI.PitchExtractor pe = new edu.cuny.qc.speech.AuToBI.PitchExtractor(wave);
     	Contour contour = pe.soundToPitch(pitchWindowSec,minPitch,maxPitch);
     	 //pe.soundToPitchAc(pitchWindowSec, minPitch, 1.0, 15, 0.03, 0.45, 0.01, 0.35, 0.14, maxPitch);
     	int contentSize = contour.size();
     	//HashMap<Integer,Double> pitchMap = new HashMap<>();
     	int pitchCurveLen = (int) (duration/pitchWindowSec);
-    	
+
     	this.pitchCurve = new Double[pitchCurveLen];
-    	
+
     	for (int i = 0; i < contentSize; ++i) {
     		double time = contour.timeFromIndex(i)-pitchWindowSec; // the indicated time is the final marker of the pitch
     		double value = contour.get(i);
             //System.out.println("point[" + i + "]: " + contour.get(i) + " -- " + contour.timeFromIndex(i));
-            
+
             Integer index = (int) (time/pitchWindowSec);
             pitchCurve[index] = value;
           }
-    	
+
     	System.out
         .println(
             "pitch elements "+pitchCurve.length);
-    	
+
     	/*
     	double time = 0;
     	List<Double> pitchArray = new ArrayList<>();
@@ -224,13 +221,13 @@ public class PitchExtractor {
     		double value = contour.get(time);
     		contour.
     		System.out.println("time "+time+ " value " + value);
-    		
-    		
+
+
     		pitchArray.add(value);
     		time = time + pitchWindowSec;
     		i++;
     	}
-    	
+
     	this.pitchCurve = new Double[pitchArray.size()];
     	pitchCurve = pitchArray.toArray(pitchCurve);
     	*/
@@ -248,14 +245,128 @@ public class PitchExtractor {
     		pitchCurve[i]=pair.second;
     		i++;
     	}
-    	
+
     	*/
-    	
-    	
+
+
     	}catch(Exception e ){
     		e.printStackTrace();
-    		
+
     	}
+    }
+
+    /**
+     * Builds an energy-aligned pitch curve.
+     *
+     * windowLength and windowHop are in seconds.
+     * Each complete output window receives the mean of the valid positive
+     * pitch estimates whose timestamps fall within that window.
+     * Windows without valid estimates receive 0.
+     */
+    public double[] calculatePitch(
+            String wavefile,
+            double windowLength,
+            double windowHop,
+            double minPitch,
+            double maxPitch) throws Exception {
+
+        if (!Double.isFinite(windowLength) || windowLength <= 0
+                || !Double.isFinite(windowHop) || windowHop <= 0) {
+            throw new IllegalArgumentException(
+                    "Window length and hop must be finite and positive.");
+        }
+
+        if (!Double.isFinite(minPitch) || !Double.isFinite(maxPitch)
+                || minPitch <= 0 || maxPitch <= minPitch) {
+            throw new IllegalArgumentException(
+                    "Pitch limits must satisfy 0 < minPitch < maxPitch.");
+        }
+
+        // Use the same audio sample count as the existing energy extraction.
+        AudioBits audio = new AudioBits(new File(wavefile));
+        short[] signal;
+        float sampleRate;
+
+        try {
+            sampleRate = audio.getAudioFormat().getSampleRate();
+            signal = audio.getShortVectorAudio();
+        } finally {
+            audio.deallocateAudio();
+        }
+
+        long roundedWindow = Math.round(windowLength * sampleRate);
+        long roundedHop = Math.round(windowHop * sampleRate);
+
+        if (roundedWindow < 1 || roundedWindow > Integer.MAX_VALUE
+                || roundedHop < 1 || roundedHop > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "Window length and hop must round to valid sample counts.");
+        }
+
+        int windowSamples = (int) roundedWindow;
+        int hopSamples = (int) roundedHop;
+
+        int frameCount = signal.length < windowSamples
+                ? 0
+                : 1 + (signal.length - windowSamples) / hopSamples;
+
+        double[] result = new double[frameCount];
+
+        if (frameCount > 0) {
+            WavReader reader = new WavReader();
+            WavData wave = reader.read(wavefile);
+
+            edu.cuny.qc.speech.AuToBI.PitchExtractor extractor =
+                    new edu.cuny.qc.speech.AuToBI.PitchExtractor(wave);
+
+            // Same extraction call as the existing method, with the
+            // requested windowLength used as the contour time step.
+            Contour contour = extractor.soundToPitch(
+                    windowLength, minPitch, maxPitch);
+
+            int first = 0;
+
+            for (int frame = 0; frame < frameCount; frame++) {
+                int startSample = frame * hopSamples;
+
+                double startTime = (double) startSample / (double) sampleRate;
+                double endTime =
+                        (double) (startSample + windowSamples) / (double) sampleRate;
+
+                while (first < contour.size()
+                        && contour.timeFromIndex(first) < startTime) {
+                    first++;
+                }
+
+                double sum = 0;
+                int validCount = 0;
+
+                for (int j = first;
+                        j < contour.size()
+                                && contour.timeFromIndex(j) < endTime;
+                        j++) {
+
+                    double value = contour.get(j);
+
+                    if (Double.isFinite(value) && value > 0) {
+                        sum += value;
+                        validCount++;
+                    }
+                }
+
+                result[frame] = validCount > 0
+                        ? sum / (double) validCount
+                        : 0.0;
+            }
+        }
+
+        this.pitchCurve = new Double[result.length];
+
+        for (int i = 0; i < result.length; i++) {
+            this.pitchCurve[i] = result[i];
+        }
+
+        return result;
     }
     
 	public double[] normalize(double af[]) {
@@ -285,7 +396,7 @@ public class PitchExtractor {
 		        }
 		        R[i]=sum;
 		    }
-		    
+
 		    return R;
 		}
 
